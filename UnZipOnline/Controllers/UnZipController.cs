@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -36,61 +37,63 @@ namespace UnZipOnline.Controllers
         {
             try
             {
+                var lastModified = DateTime.UtcNow;
+                var name = Guid.NewGuid().ToString();
+                string path = "/File/" + name;
+                string fullPath = _environment.WebRootPath + path;
+
+                string targetFolder = _environment.WebRootPath + @"\Extracted\" + $@"{Guid.NewGuid()}\";
+
                 FileModel file = new FileModel();
                 if (uploadfile != null)
                 {
-                    var name = Guid.NewGuid().ToString();
-                    string path = "/File/" +name;
 
-                    using (var stream = new FileStream(_environment.WebRootPath + path, FileMode.Create))
+                    using (var stream = new FileStream(fullPath, FileMode.Create))
                     {
                         await uploadfile.CopyToAsync(stream);
                     }
 
-                    file = new FileModel { Name = name, Path = path };
-                    _context.Files.Add(file);
-                    _context.SaveChanges();
+
                 }
 
-                string targetFolder = _environment.WebRootPath + @"\Extracted\";
-
-                string zipFile = _environment.WebRootPath + file.Path;
+                string zipFile = fullPath;
 
                 ZipFile.ExtractToDirectory(zipFile, targetFolder);
 
-                ExtractedModel extracted = new ExtractedModel();
-                string[] files = Directory.GetFiles(targetFolder);
-                var extractedFile = files[0];
+                string[] extractedFiles = Directory.GetFiles(targetFolder);
+                string extractedFile = extractedFiles[0];
+                string extractedFileName = Path.GetFileName(extractedFile);
 
-                extracted = new ExtractedModel { Name = extractedFile };
-
-                _context.Extracted.Add(extracted);
+                file = new FileModel { Name = name,ExtractedFileName =extractedFileName, ExtractedFile = extractedFile, 
+                    Path = path, ContentType = uploadfile.ContentType, 
+                        ExtractedTo = targetFolder, LastModified = lastModified };
+                _context.Files.Add(file);
                 _context.SaveChanges();
+
             }
             catch (Exception ex)
             {
                 ViewBag.ErrorMessage = ex.Message;
-                return View("Message",ViewBag.ErrorMessage);
+                return View("Message", ViewBag.ErrorMessage);
 
             }
             return RedirectToAction("Download");
         }
 
-
-
-        //[HttpPost]
-        public IActionResult Download(string fileName)
+        public async Task<IActionResult> Download()
         {
+            var file = await _context.Files.OrderBy(e=>e.LastModified).LastOrDefaultAsync();
+            var path = file.ExtractedFile;
 
-            string path = _environment.WebRootPath + @"\Extracted\";
-            string[] files = Directory.GetFiles(path);
-            var file = files[0];
-            byte[] fileBytes = System.IO.File.ReadAllBytes(file);
+            var memory = new MemoryStream();
+            using (var stream = new FileStream(path, FileMode.Open))
+            {
+                await stream.CopyToAsync(memory);
+            }
+            memory.Position = 0;
 
-            
-            string uniqueFileName = $"{Guid.NewGuid()}.docx";
-            return File(fileBytes, "application/octet-stream", uniqueFileName);
-            
+            return File(memory, "application/octet-stream", Path.GetFileName(path));
+
         }
 
     }
