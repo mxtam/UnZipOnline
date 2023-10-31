@@ -1,0 +1,3 @@
+﻿@foreach(var file in ViewBag.FileName){
+    <a class="download-link" asp-controller="UnZip" asp-action="Download" asp-route-filename="@file" >@file</a><br/>
+}

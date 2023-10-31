@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text.RegularExpressions;
 using UnZipOnline.Models;
@@ -39,8 +40,7 @@ namespace UnZipOnline.Controllers
             {
                 var lastModified = DateTime.UtcNow;
                 var name = Guid.NewGuid().ToString();
-                string path = "/File/" + name;
-                string fullPath = _environment.WebRootPath + path;
+                string fullPath = _environment.WebRootPath + "/File/" + name;
 
                 string targetFolder = _environment.WebRootPath + @"\Extracted\" + $@"{Guid.NewGuid()}\";
 
@@ -60,15 +60,20 @@ namespace UnZipOnline.Controllers
 
                 ZipFile.ExtractToDirectory(zipFile, targetFolder);
 
-                string[] extractedFiles = Directory.GetFiles(targetFolder);
-                string extractedFile = extractedFiles[0];
-                string extractedFileName = Path.GetFileName(extractedFile);
+                string extractedFiles = "";
 
-                file = new FileModel { Name = name,ExtractedFileName =extractedFileName, ExtractedFile = extractedFile, 
-                    Path = path, ContentType = uploadfile.ContentType, 
-                        ExtractedTo = targetFolder, LastModified = lastModified };
+                string[] files = Directory.GetFiles(targetFolder);
+                foreach (var exFile in files)
+                {
+                    extractedFiles += Path.GetFileName(exFile) + "&&&";
+                }
+
+                file = new FileModel { Name = name, ContentType = uploadfile.ContentType,
+                    ExtractedTo = targetFolder, LastModified = lastModified, ExtractedFiles = extractedFiles };
                 _context.Files.Add(file);
                 _context.SaveChanges();
+
+                return RedirectToAction("Download",file);
 
             }
             catch (Exception ex)
@@ -77,15 +82,30 @@ namespace UnZipOnline.Controllers
                 return View("Message", ViewBag.ErrorMessage);
 
             }
-            return RedirectToAction("Download");
+            
         }
 
-        public async Task<IActionResult> Download()
-        {
-            var file = await _context.Files.OrderBy(e=>e.LastModified).LastOrDefaultAsync();
-            var path = file.ExtractedFile;
 
-            var memory = new MemoryStream();
+        [HttpGet]
+        public async Task<IActionResult> Download(FileModel file)
+        {
+            var _file = file;
+
+            string filestring = file.ExtractedFiles;
+
+            string[] files = filestring.Split("&&&");
+
+            ViewBag.FileName = files;
+            return View(ViewBag.FileName);
+        }
+
+        [Route("/Dowmnload/{filename}")]
+        public async Task<IActionResult> Download(MemoryStream _memory, string filename)
+        {
+            var file = await _context.Files.FirstOrDefaultAsync(e => e.ExtractedFiles.Contains(filename));
+            var path = file.ExtractedTo + filename;
+
+            var memory = _memory;
             using (var stream = new FileStream(path, FileMode.Open))
             {
                 await stream.CopyToAsync(memory);
