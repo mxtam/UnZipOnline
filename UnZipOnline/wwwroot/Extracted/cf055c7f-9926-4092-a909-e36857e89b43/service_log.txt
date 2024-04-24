@@ -1,0 +1,5 @@
+04/04/24 04:25:17 : Updated file "SteamService.exe" from version 0x00080048002b0044 to version 0x0008004a0050005f.
+04/04/24 04:25:17 : Updated file "secure_desktop_capture.exe" from version 0x0000000000000000 to version 0x0008004a0050005f.
+04/04/24 04:25:18 : Updated file "steamxboxutil64.exe" from version 0x0000000000000000 to version 0x0008004a0050005f.
+04/04/24 04:25:18 : Updated file "drivers.exe" from version 0x0000000000000000 to version 0x0008003100320001.
+04/04/24 04:25:18 : Updated file "SteamService.dll" from version 0x0000000000000000 to version 0x0008004a0050005f.

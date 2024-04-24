@@ -40,11 +40,19 @@ namespace UnZipOnline.Controllers
             {
                 var lastModified = DateTime.UtcNow;
                 var name = Guid.NewGuid().ToString();
-                string fullPath = _environment.WebRootPath + "/File/" + name;
 
+                Archives archive = new Archives { Name = name, ContentType = uploadfile.ContentType, LastModified = lastModified };
+
+                _context.Add(archive);
+                _context.SaveChanges();
+
+
+                string fullPath = _environment.WebRootPath + @"\File\" + archive.Name;
+
+               
                 string targetFolder = _environment.WebRootPath + @"\Extracted\" + $@"{Guid.NewGuid()}\";
 
-                FileModel file = new FileModel();
+
                 if (uploadfile != null)
                 {
 
@@ -60,20 +68,28 @@ namespace UnZipOnline.Controllers
 
                 ZipFile.ExtractToDirectory(zipFile, targetFolder);
 
-                string extractedFiles = "";
-
+                Files file = new Files();
                 string[] files = Directory.GetFiles(targetFolder);
                 foreach (var exFile in files)
                 {
-                    extractedFiles += Path.GetFileName(exFile) + "&&&";
+                    file = new Files
+                    {
+                        Name = Path.GetFileName(exFile),
+                        ExtractedTo = targetFolder, 
+                        LastModified = DateTime.UtcNow,
+                        ArchivesId = archive.Id,
+                        FullPath= exFile
+                       
+                    };
+
+                    _context.Files.Add(file);
                 }
 
-                file = new FileModel { Name = name, ContentType = uploadfile.ContentType,
-                    ExtractedTo = targetFolder, LastModified = lastModified, ExtractedFiles = extractedFiles };
-                _context.Files.Add(file);
                 _context.SaveChanges();
 
-                return RedirectToAction("Download",file);
+
+
+                return RedirectToAction("Download", archive);
 
             }
             catch (Exception ex)
@@ -82,28 +98,23 @@ namespace UnZipOnline.Controllers
                 return View("Message", ViewBag.ErrorMessage);
 
             }
-            
+
         }
 
 
         [HttpGet]
-        public async Task<IActionResult> Download(FileModel file)
+        public async Task<IActionResult> Download(Archives archives)
         {
-            var _file = file;
-
-            string filestring = file.ExtractedFiles;
-
-            string[] files = filestring.Split("&&&");
-
-            ViewBag.FileName = files;
-            return View(ViewBag.FileName);
+            var files = _context.Files.Where(x => x.ArchivesId == archives.Id).ToList();
+            
+            return View(files);
         }
 
         [Route("/Dowmnload/{filename}")]
         public async Task<IActionResult> Download(MemoryStream _memory, string filename)
         {
-            var file = await _context.Files.FirstOrDefaultAsync(e => e.ExtractedFiles.Contains(filename));
-            var path = file.ExtractedTo + filename;
+            var file =  _context.Files.FirstOrDefault(x=>x.Name==filename);
+            var path = file.FullPath;
 
             var memory = _memory;
             using (var stream = new FileStream(path, FileMode.Open))

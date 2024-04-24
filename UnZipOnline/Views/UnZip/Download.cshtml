@@ -1,3 +1,5 @@
-﻿@foreach(var file in ViewBag.FileName){
-    <a class="download-link" asp-controller="UnZip" asp-action="Download" asp-route-filename="@file" >@file</a><br/>
+﻿@model List<Files>
+
+@foreach(var file in Model){
+    <a class="download-link" asp-controller="UnZip" asp-action="Download" asp-route-filename="@file.Name" >@file.Name</a><br/>
 }
